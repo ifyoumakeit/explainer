@@ -36,16 +36,11 @@ async function writeCacheToFile() {
   }
 }
 
-async function readJustifications() {
+async function list() {
   try {
-    await writeCacheToFile();
-    const filePkg = await readFile(FILE_PKG);
-    const fileCache = await readFile(FILE_CACHE);
+    const deps = await getDependencies();
+    const cache = await getCache();
 
-    const { dependencies = {}, devDependencies = {} } = JSON.parse(filePkg);
-    const cache = JSON.parse(fileCache) || {};
-
-    const deps = Object.assign({}, dependencies, devDependencies);
     const max = Object.keys(deps).reduce((acc, key) => {
       return Math.max(getPackageName(deps, key).length, acc);
     }, 0);
@@ -64,12 +59,68 @@ async function readJustifications() {
   }
 }
 
-async function addJustification() {
+async function getDependencies() {
+  const filePkg = await readFile(FILE_PKG);
+  const { dependencies = {}, devDependencies = {} } = JSON.parse(filePkg);
+  return Object.assign({}, dependencies, devDependencies);
+}
+
+async function getCache() {
+  await writeCacheToFile();
+  const fileCache = await readFile(FILE_CACHE);
+  return JSON.parse(fileCache) || {};
+}
+
+async function clean() {
   try {
-    await writeCacheToFile();
-    const fileCache = await readFile(FILE_CACHE);
-    const cache = JSON.parse(fileCache);
+    const deps = await getDependencies();
+    const cache = await getCache();
+
+    const cleaned = Object.keys(cache).reduce((memo, key) => {
+      if (deps[key]) {
+        memo[key] = cache[key];
+      }
+      return memo;
+    }, {});
+
+    await writeFile(FILE_CACHE, stringify(cleaned));
+    console.log("Cleaned!");
+    process.exit(0);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function update() {
+  try {
+    const deps = await getDependencies();
+    const cache = await getCache();
+
+    const updated = Object.keys(deps).reduce((memo, key) => {
+      memo[key] = cache[key] || "";
+      return memo;
+    }, cache);
+
+    await writeFile(FILE_CACHE, stringify(updated));
+    console.log("Updated!");
+    process.exit(0);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function add() {
+  try {
+    const deps = await getDependencies();
+    const cache = await getCache();
+
     const dep = process.argv.slice(3);
+
+    if (!deps[dep]) {
+      console.error(`Dependency "${dep}" not in package.json`);
+      process.exit(1);
+    }
+
     rl.question(`Why "${dep}"? `, async description => {
       await writeFile(
         FILE_CACHE,
@@ -83,10 +134,19 @@ async function addJustification() {
 }
 
 switch (command) {
-  case "add":
-    addJustification();
+  case "list":
+    list();
     break;
-  default: {
-    readJustifications();
-  }
+  case "add":
+    add();
+    break;
+  case "clean":
+    clean();
+    break;
+  case "update":
+    update();
+    break;
+  default:
+    console.log("Commands => list, add, clean, update");
+    process.exit(0);
 }
