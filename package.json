@@ -5,8 +5,5 @@
     "explainer": "./bin/explainer.js"
   },
   "license": "MIT",
-  "dependencies": {
-    "chalk": "^2.3.2",
-    "react": "^16.3.1"
-  }
+  "engines": { "node": ">=8" }
 }
