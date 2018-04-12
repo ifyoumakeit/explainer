@@ -18,15 +18,23 @@ const writeFile = util.promisify(fs.writeFile);
 const readFile = util.promisify(fs.readFile);
 const access = util.promisify(fs.access);
 
+const stringify = str => JSON.stringify(str, null, 2);
+const getPackageName = (deps, key) => `${key}@${deps[key]}`;
+
 async function writeCacheToFile() {
   try {
     await access(FILE_CACHE);
   } catch (err) {
-    await writeFile(FILE_CACHE, JSON.stringify({}));
+    if (err.code === "ENOENT") {
+      await writeFile(
+        FILE_CACHE,
+        stringify({ explainer: "To help explain our choices." })
+      );
+    } else {
+      console.warn(err);
+    }
   }
 }
-
-const getName = (deps, key) => `${key}@${deps[key]}`;
 
 async function readJustifications() {
   try {
@@ -39,12 +47,12 @@ async function readJustifications() {
 
     const deps = Object.assign({}, dependencies, devDependencies);
     const max = Object.keys(deps).reduce((acc, key) => {
-      return Math.max(getName(deps, key).length, acc);
+      return Math.max(getPackageName(deps, key).length, acc);
     }, 0);
 
     for (const key in deps) {
       console.log(
-        getName(deps, key).padEnd(max),
+        getPackageName(deps, key).padEnd(max),
         cache[key] ? "" : "\x1b[33m",
         cache[key] || "Needs description",
         "\x1b[0m"
@@ -52,7 +60,7 @@ async function readJustifications() {
     }
     process.exit(0);
   } catch (err) {
-    console.warn(err);
+    console.error(err);
   }
 }
 
@@ -65,12 +73,12 @@ async function addJustification() {
     rl.question(`Why "${dep}"? `, async description => {
       await writeFile(
         FILE_CACHE,
-        JSON.stringify(Object.assign({}, cache, { [dep]: description }))
+        stringify(Object.assign({}, cache, { [dep]: description }))
       );
       rl.close();
     });
   } catch (err) {
-    console.warn(err);
+    console.error(err);
   }
 }
 

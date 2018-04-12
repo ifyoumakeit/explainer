@@ -1,6 +1,8 @@
 {
   "name": "explainer",
   "version": "0.0.4",
+  "repository": "github:ifyoumakeit/explainer",
+  "description": "Explain your package choices!",
   "bin": {
     "explainer": "./bin/explainer.js"
   },
