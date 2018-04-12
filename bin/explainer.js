@@ -62,7 +62,7 @@ async function addJustification() {
     const fileCache = await readFile(FILE_CACHE);
     const cache = JSON.parse(fileCache);
     const dep = process.argv.slice(3);
-    rl.question(`Why are you using "${dep}"? `, async description => {
+    rl.question(`Why "${dep}"? `, async description => {
       await writeFile(
         FILE_CACHE,
         JSON.stringify(Object.assign({}, cache, { [dep]: description }))
