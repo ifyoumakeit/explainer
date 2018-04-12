@@ -1,9 +1,11 @@
 {
   "name": "explainer",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "bin": {
     "explainer": "./bin/explainer.js"
   },
   "license": "MIT",
-  "engines": { "node": ">=8" }
+  "engines": {
+    "node": ">=8"
+  }
 }
