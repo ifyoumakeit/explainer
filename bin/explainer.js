@@ -143,22 +143,22 @@ async function add() {
   });
 }
 
-(() => {
+(async () => {
   title("Explainer 🕵️", "The why behind the package.\n");
 
   try {
     switch (command) {
       case "list":
-        list();
+        await list();
         break;
       case "add":
-        add();
+        await add();
         break;
       case "clean":
-        clean();
+        await clean();
         break;
       case "update":
-        update();
+        await update();
         break;
       default:
         err("Invalid command", "Try: list, add, clean, update");
