@@ -51,7 +51,7 @@ async function writeToPkg(dataPkg) {
 }
 
 async function list() {
-  msg("Listing explainer");
+  msg("📝 Listing explainer");
   const dataPkg = await getPkgData();
   const deps = getDeps(dataPkg);
 
@@ -60,15 +60,15 @@ async function list() {
   }, 0);
 
   for (const key in dataPkg.explainer) {
-    msg(
-      `\n${getPackageName(deps, key).padEnd(max)}`,
+    row(
+      `${getPackageName(deps, key).padEnd(max)}`,
       "|",
       dataPkg.explainer[key]
     );
   }
 
   await writeToPkg(dataPkg);
-  msg(keysDiff(deps, dataPkg.explainer), "Unexplained dependencies");
+  msg(`📝 ${keysDiff(deps, dataPkg.explainer)}`, "Unexplained dependencies");
   process.exit(0);
 }
 
@@ -84,21 +84,22 @@ async function getPkgData() {
 }
 
 async function clean() {
-  msg("Cleaning", "start");
+  msg("🛁 Cleaning", "start");
   const dataPkg = await getPkgData();
   const deps = getDeps(dataPkg);
 
   const cleaned = Object.keys(dataPkg.explainer).reduce((memo, key) => {
     if (deps[key]) {
-      memo[key] = explainer[key];
+      memo[key] = dataPkg.explainer[key];
     } else {
-      msg("Removing", key);
+      msg("🛁 Removing", key);
     }
     return memo;
   }, {});
 
   await writeToPkg({ ...dataPkg, explainer: cleaned });
-  msg("Cleaning", "end");
+  msg("🛁 Removed", `${keysDiff(dataPkg.explainer, cleaned)} explanations`);
+  msg("🛁 Cleaning", "end");
   process.exit(0);
 }
 
@@ -124,13 +125,8 @@ async function add() {
 
   const dep = process.argv.slice(3);
 
-  if (!dep) {
-    error(`Please run add with dependency name`);
-  }
-
-  if (!deps[dep]) {
-    error(`Dependency "${dep}" not in package.json`);
-  }
+  !dep && error(`Please run add with dependency name`);
+  !deps[dep] && error(`Dependency "${dep}" not in package.json`);
 
   rl.question(`Why "${dep}"? `, async description => {
     await writeToPkg(
@@ -147,7 +143,7 @@ async function add() {
 }
 
 (async () => {
-  title("Explainer 🕵️", "The why behind the package.\n");
+  title("🕵  Explainer", "The why behind the package.");
 
   try {
     switch (command) {
