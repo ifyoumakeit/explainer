@@ -4,14 +4,14 @@ const fs = require("fs");
 const readline = require("readline");
 const util = require("util");
 
-const FILE_CACHE = "./explainer.json";
+const FILE_EXPLAINER = "./explainer.json";
 const FILE_PKG = "./package.json";
 
 const command = process.argv[2];
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout,
+  output: process.stdout
 });
 
 const writeFile = util.promisify(fs.writeFile);
@@ -27,11 +27,11 @@ const COLORS = {
   green: "[32m",
   yellow: "[33m",
   blue: "[34m",
-  magenta: "[35m",
+  magenta: "[35m"
 };
 
 const log = (color = COLORS.reset, title, ...strs) => {
-  return console.log(`\x1b${color}${title}\x1b${COLORS.reset}`, ...strs);
+  return log(`\x1b${color}${title}\x1b${COLORS.reset}`, ...strs);
 };
 
 const title = (title, ...strs) => log(COLORS.yellow, title, ...strs);
@@ -39,17 +39,17 @@ const msg = (title, ...strs) => log(COLORS.blue, title, ...strs);
 const row = (title, ...strs) => log(COLORS.green, title, ...strs);
 const warn = (title, ...strs) => log(COLORS.red, title, ...strs);
 
-async function writeCacheToFile() {
+async function checkForExplainerAndWriteDefault() {
   try {
-    await access(FILE_CACHE);
+    await access(FILE_EXPLAINER);
   } catch (err) {
     if (err.code === "ENOENT") {
       await writeFile(
-        FILE_CACHE,
+        FILE_EXPLAINER,
         stringify({ explainer: "To help explain our choices." })
       );
     } else {
-      console.warn(err);
+      warn(err);
     }
   }
 }
@@ -72,7 +72,7 @@ async function list() {
     msg("\nUnexplained dependencies", Math.max(unexplained, 0));
     process.exit(0);
   } catch (err) {
-    console.error(err);
+    error(err);
   }
 }
 
@@ -83,8 +83,8 @@ async function getDependencies() {
 }
 
 async function getCache() {
-  await writeCacheToFile();
-  const fileCache = await readFile(FILE_CACHE);
+  await checkForExplainerAndWriteDefault();
+  const fileCache = await readFile(FILE_EXPLAINER);
   return JSON.parse(fileCache) || {};
 }
 
@@ -100,7 +100,7 @@ async function clean() {
       return memo;
     }, {});
 
-    await writeFile(FILE_CACHE, stringify(cleaned));
+    await writeFile(FILE_EXPLAINER, stringify(cleaned));
     msg("Cleaned!");
     process.exit(0);
   } catch (err) {
@@ -120,11 +120,11 @@ async function update() {
 
     const added = Object.keys(updated).length - Object.keys(cache).length;
 
-    await writeFile(FILE_CACHE, stringify(updated));
+    await writeFile(FILE_EXPLAINER, stringify(updated));
     msg("Added", `${added} dependencies to Explainer`);
     process.exit(0);
   } catch (err) {
-    console.error(err);
+    error(err);
   }
 }
 
@@ -136,19 +136,19 @@ async function add() {
     const dep = process.argv.slice(3);
 
     if (!deps[dep]) {
-      console.error(`Dependency "${dep}" not in package.json`);
+      error(`Dependency "${dep}" not in package.json`);
       process.exit(1);
     }
 
     rl.question(`Why "${dep}"? `, async description => {
       await writeFile(
-        FILE_CACHE,
+        FILE_EXPLAINER,
         stringify(Object.assign({}, cache, { [dep]: description }))
       );
       rl.close();
     });
   } catch (err) {
-    console.error(err);
+    error(err);
   }
 }
 
