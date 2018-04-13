@@ -11,7 +11,7 @@ const command = process.argv[2];
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 const writeFile = util.promisify(fs.writeFile);
@@ -20,6 +20,24 @@ const access = util.promisify(fs.access);
 
 const stringify = str => JSON.stringify(str, null, 2);
 const getPackageName = (deps, key) => `${key}@${deps[key]}`;
+
+const COLORS = {
+  reset: "[0m",
+  red: "[31m",
+  green: "[32m",
+  yellow: "[33m",
+  blue: "[34m",
+  magenta: "[35m",
+};
+
+const log = (color = COLORS.reset, title, ...strs) => {
+  return console.log(`\x1b${color}${title}\x1b${COLORS.reset}`, ...strs);
+};
+
+const title = (title, ...strs) => log(COLORS.yellow, title, ...strs);
+const msg = (title, ...strs) => log(COLORS.blue, title, ...strs);
+const row = (title, ...strs) => log(COLORS.green, title, ...strs);
+const warn = (title, ...strs) => log(COLORS.red, title, ...strs);
 
 async function writeCacheToFile() {
   try {
@@ -41,18 +59,17 @@ async function list() {
     const deps = await getDependencies();
     const cache = await getCache();
 
+    const unexplained = Object.keys(deps).length - Object.keys(cache).length;
+
     const max = Object.keys(deps).reduce((acc, key) => {
       return Math.max(getPackageName(deps, key).length, acc);
     }, 0);
 
-    for (const key in deps) {
-      console.log(
-        getPackageName(deps, key).padEnd(max),
-        cache[key] ? "" : "\x1b[33m",
-        cache[key] || "Needs description",
-        "\x1b[0m"
-      );
+    for (const key in cache) {
+      msg(`\n${getPackageName(deps, key).padEnd(max)}`, "|", cache[key]);
     }
+
+    msg("\nUnexplained dependencies", Math.max(unexplained, 0));
     process.exit(0);
   } catch (err) {
     console.error(err);
@@ -84,25 +101,27 @@ async function clean() {
     }, {});
 
     await writeFile(FILE_CACHE, stringify(cleaned));
-    console.log("Cleaned!");
+    msg("Cleaned!");
     process.exit(0);
   } catch (err) {
-    console.error(err);
+    warn(err);
   }
 }
 
 async function update() {
+  msg("Updating explanations with current dependencies");
   try {
     const deps = await getDependencies();
     const cache = await getCache();
 
     const updated = Object.keys(deps).reduce((memo, key) => {
-      memo[key] = cache[key] || "";
-      return memo;
+      return Object.assign({}, memo, { [key]: cache[key] || "" });
     }, cache);
 
+    const added = Object.keys(updated).length - Object.keys(cache).length;
+
     await writeFile(FILE_CACHE, stringify(updated));
-    console.log("Updated!");
+    msg("Added", `${added} dependencies to Explainer`);
     process.exit(0);
   } catch (err) {
     console.error(err);
@@ -133,20 +152,27 @@ async function add() {
   }
 }
 
-switch (command) {
-  case "list":
-    list();
-    break;
-  case "add":
-    add();
-    break;
-  case "clean":
-    clean();
-    break;
-  case "update":
-    update();
-    break;
-  default:
-    console.log("Commands => list, add, clean, update");
-    process.exit(0);
-}
+(() => {
+  title("Explainer 🕵️", "The why behind the package.\n");
+
+  switch (command) {
+    case "list":
+      msg("Listing explanations");
+      list();
+      break;
+    case "add":
+      msg("Adding an explanation");
+      add();
+      break;
+    case "clean":
+      msg("Cleaning explanations");
+      clean();
+      break;
+    case "update":
+      update();
+      break;
+    default:
+      warn("Invalid command", "Try: list, add, clean, update");
+      process.exit(0);
+  }
+})();
