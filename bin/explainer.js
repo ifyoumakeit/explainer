@@ -4,7 +4,6 @@ const fs = require("fs");
 const readline = require("readline");
 const util = require("util");
 
-const FILE_EXPLAINER = "./explainer.json";
 const FILE_PKG = "./package.json";
 
 const command = process.argv[2];
@@ -18,8 +17,12 @@ const writeFile = util.promisify(fs.writeFile);
 const readFile = util.promisify(fs.readFile);
 const access = util.promisify(fs.access);
 
-const stringify = str => JSON.stringify(str, null, 2);
+const stringify = exp => JSON.stringify(exp, null, 2);
 const getPackageName = (deps, key) => `${key}@${deps[key]}`;
+const getDeps = ({ dependencies, devDependencies, peerDependencies }) =>
+  Object.assign({}, dependencies, devDependencies, peerDependencies);
+const keysDiff = (a, b) =>
+  Math.abs(Object.keys(a).length - Object.keys(b).length);
 
 const COLORS = {
   reset: "[0m",
@@ -31,148 +34,137 @@ const COLORS = {
 };
 
 const log = (color = COLORS.reset, title, ...strs) => {
-  return log(`\x1b${color}${title}\x1b${COLORS.reset}`, ...strs);
+  return console.log(`\x1b${color}${title}\x1b${COLORS.reset}`, ...strs);
 };
 
 const title = (title, ...strs) => log(COLORS.yellow, title, ...strs);
 const msg = (title, ...strs) => log(COLORS.blue, title, ...strs);
 const row = (title, ...strs) => log(COLORS.green, title, ...strs);
-const warn = (title, ...strs) => log(COLORS.red, title, ...strs);
+const throwError = (title, ...strs) => {
+  log(COLORS.red, title, ...strs);
+  process.exit(1);
+};
 
-async function checkForExplainerAndWriteDefault() {
-  try {
-    await access(FILE_EXPLAINER);
-  } catch (err) {
-    if (err.code === "ENOENT") {
-      await writeFile(
-        FILE_EXPLAINER,
-        stringify({ explainer: "To help explain our choices." })
-      );
-    } else {
-      warn(err);
-    }
-  }
+async function writeToPkg(dataPkg) {
+  const data = stringify(dataPkg);
+  await writeFile(FILE_PKG, data);
 }
 
 async function list() {
-  try {
-    const deps = await getDependencies();
-    const cache = await getCache();
+  msg("Listing explainer");
+  const dataPkg = await getPkgData();
+  const deps = getDeps(dataPkg);
 
-    const unexplained = Object.keys(deps).length - Object.keys(cache).length;
+  const max = Object.keys(deps).reduce((acc, key) => {
+    return Math.max(getPackageName(deps, key).length, acc);
+  }, 0);
 
-    const max = Object.keys(deps).reduce((acc, key) => {
-      return Math.max(getPackageName(deps, key).length, acc);
-    }, 0);
-
-    for (const key in cache) {
-      msg(`\n${getPackageName(deps, key).padEnd(max)}`, "|", cache[key]);
-    }
-
-    msg("\nUnexplained dependencies", Math.max(unexplained, 0));
-    process.exit(0);
-  } catch (err) {
-    error(err);
+  for (const key in dataPkg.explainer) {
+    msg(
+      `\n${getPackageName(deps, key).padEnd(max)}`,
+      "|",
+      dataPkg.explainer[key]
+    );
   }
+
+  await writeToPkg(dataPkg);
+  msg(keysDiff(deps, dataPkg.explainer), "Unexplained dependencies");
+  process.exit(0);
 }
 
-async function getDependencies() {
+async function getPkgData() {
   const filePkg = await readFile(FILE_PKG);
-  const { dependencies = {}, devDependencies = {} } = JSON.parse(filePkg);
-  return Object.assign({}, dependencies, devDependencies);
-}
-
-async function getCache() {
-  await checkForExplainerAndWriteDefault();
-  const fileCache = await readFile(FILE_EXPLAINER);
-  return JSON.parse(fileCache) || {};
+  const dataPkg = JSON.parse(filePkg);
+  return {
+    ...dataPkg,
+    explainer: dataPkg.explainer || {
+      explainer: "Explains our choices"
+    }
+  };
 }
 
 async function clean() {
-  try {
-    const deps = await getDependencies();
-    const cache = await getCache();
+  msg("Cleaning", "start");
+  const dataPkg = await getPkgData();
+  const deps = getDeps(dataPkg);
 
-    const cleaned = Object.keys(cache).reduce((memo, key) => {
-      if (deps[key]) {
-        memo[key] = cache[key];
-      }
-      return memo;
-    }, {});
+  const cleaned = Object.keys(dataPkg.explainer).reduce((memo, key) => {
+    if (deps[key]) {
+      memo[key] = explainer[key];
+    } else {
+      msg("Removing", key);
+    }
+    return memo;
+  }, {});
 
-    await writeFile(FILE_EXPLAINER, stringify(cleaned));
-    msg("Cleaned!");
-    process.exit(0);
-  } catch (err) {
-    warn(err);
-  }
+  await writeToPkg({ ...dataPkg, explainer: cleaned });
+  msg("Cleaning", "end");
+  process.exit(0);
 }
 
 async function update() {
-  msg("Updating explanations with current dependencies");
-  try {
-    const deps = await getDependencies();
-    const cache = await getCache();
+  msg("Updating explainer with current dependencies");
 
-    const updated = Object.keys(deps).reduce((memo, key) => {
-      return Object.assign({}, memo, { [key]: cache[key] || "" });
-    }, cache);
+  const dataPkg = await getPkgData();
+  const deps = getDeps(dataPkg);
 
-    const added = Object.keys(updated).length - Object.keys(cache).length;
+  const updated = Object.keys(deps).reduce((memo, key) => {
+    return Object.assign({}, memo, { [key]: dataPkg.explainer[key] || "" });
+  }, explainer);
 
-    await writeFile(FILE_EXPLAINER, stringify(updated));
-    msg("Added", `${added} dependencies to Explainer`);
-    process.exit(0);
-  } catch (err) {
-    error(err);
-  }
+  await writeToPkg({ ...dataPkg, explainer: updated });
+  msg("Added", `${keysDiff(updated, explainer)} dependencies to Explainer`);
+  process.exit(0);
 }
 
 async function add() {
-  try {
-    const deps = await getDependencies();
-    const cache = await getCache();
+  msg("Adding an explanation");
+  const dataPkg = await getPkgData();
+  const deps = getDeps(dataPkg);
 
-    const dep = process.argv.slice(3);
+  const dep = process.argv.slice(3);
 
-    if (!deps[dep]) {
-      error(`Dependency "${dep}" not in package.json`);
-      process.exit(1);
-    }
-
-    rl.question(`Why "${dep}"? `, async description => {
-      await writeFile(
-        FILE_EXPLAINER,
-        stringify(Object.assign({}, cache, { [dep]: description }))
-      );
-      rl.close();
-    });
-  } catch (err) {
-    error(err);
+  if (!deps[dep]) {
+    err(`Dependency "${dep}" not in package.json`);
+    process.exit(1);
   }
+
+  rl.question(`Why "${dep}"? `, async description => {
+    await writeToPkg(
+      stringify({
+        ...dataPkg,
+        explainer: {
+          ...dataPkg.explainer,
+          [dep]: description
+        }
+      })
+    );
+    rl.close();
+  });
 }
 
 (() => {
   title("Explainer 🕵️", "The why behind the package.\n");
 
-  switch (command) {
-    case "list":
-      msg("Listing explanations");
-      list();
-      break;
-    case "add":
-      msg("Adding an explanation");
-      add();
-      break;
-    case "clean":
-      msg("Cleaning explanations");
-      clean();
-      break;
-    case "update":
-      update();
-      break;
-    default:
-      warn("Invalid command", "Try: list, add, clean, update");
-      process.exit(0);
+  try {
+    switch (command) {
+      case "list":
+        list();
+        break;
+      case "add":
+        add();
+        break;
+      case "clean":
+        clean();
+        break;
+      case "update":
+        update();
+        break;
+      default:
+        err("Invalid command", "Try: list, add, clean, update");
+        process.exit(0);
+    }
+  } catch (err) {
+    error(err);
   }
 })();
