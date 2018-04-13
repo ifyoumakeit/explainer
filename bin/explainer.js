@@ -40,7 +40,7 @@ const log = (color = COLORS.reset, title, ...strs) => {
 const title = (title, ...strs) => log(COLORS.yellow, title, ...strs);
 const msg = (title, ...strs) => log(COLORS.blue, title, ...strs);
 const row = (title, ...strs) => log(COLORS.green, title, ...strs);
-const throwError = (title, ...strs) => {
+const error = (title, ...strs) => {
   log(COLORS.red, title, ...strs);
   process.exit(1);
 };
@@ -124,9 +124,12 @@ async function add() {
 
   const dep = process.argv.slice(3);
 
+  if (!dep) {
+    error(`Please run add with dependency name`);
+  }
+
   if (!deps[dep]) {
-    err(`Dependency "${dep}" not in package.json`);
-    process.exit(1);
+    error(`Dependency "${dep}" not in package.json`);
   }
 
   rl.question(`Why "${dep}"? `, async description => {
@@ -161,7 +164,7 @@ async function add() {
         await update();
         break;
       default:
-        err("Invalid command", "Try: list, add, clean, update");
+        error("Invalid command", "Try: list, add, clean, update");
         process.exit(0);
     }
   } catch (err) {
