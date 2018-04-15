@@ -106,32 +106,35 @@ async function clean() {
   process.exit(0);
 }
 
-async function update() {
-  msg("Updating explainer with current dependencies");
+async function fill() {
+  msg("Filling", "explainer with current dependencies");
 
   const dataPkg = await getPkgData();
   const deps = getDeps(dataPkg);
 
-  const updated = Object.keys(deps).reduce((memo, key) => {
+  const explainer = Object.keys(deps).reduce((memo, key) => {
     return { ...memo, [key]: dataPkg.explainer[key] || "" };
-  }, explainer);
+  }, dataPkg.explainer);
 
-  await writeToPkg({ ...dataPkg, explainer: updated });
-  msg("Added", `${keysDiff(updated, explainer)} dependencies to Explainer`);
+  await writeToPkg({ ...dataPkg, explainer });
+  msg(
+    "Added",
+    `${keysDiff(dataPkg.explainer, explainer)} dependencies to Explainer`
+  );
   process.exit(0);
 }
 
 async function add() {
-  msg("Adding an explanation");
+  msg("🙋 Adding", "an explanation");
   const dataPkg = await getPkgData();
   const deps = getDeps(dataPkg);
 
   const dep = process.argv.slice(3);
 
-  !dep && error(`Please run add with dependency name`);
-  !deps[dep] && error(`Dependency "${dep}" not in package.json`);
+  if (!dep || !dep.length) error(`Please run add with dependency name`);
+  if (!deps[dep]) error(`Dependency "${dep}" not in package.json`);
 
-  rl.question(`Why "${dep}"? `, async description => {
+  rl.question(`🙋 Why "${dep}"? `, async description => {
     await writeToPkg(
       stringify({
         ...dataPkg,
@@ -142,11 +145,12 @@ async function add() {
       })
     );
     rl.close();
+    msg("🙋 Added", `${dep} explanation`);
   });
 }
 
 (async () => {
-  title("🕵  Explainer", "The why behind the package.");
+  title("🕵 Explainer", "The why behind the package.");
 
   try {
     switch (command) {
@@ -159,11 +163,11 @@ async function add() {
       case "clean":
         await clean();
         break;
-      case "update":
-        await update();
+      case "fill":
+        await fill();
         break;
       default:
-        error("Invalid command", "Try: list, add, clean, update");
+        error("Invalid command", "Try: list, add, clean, fill");
         process.exit(0);
     }
   } catch (err) {
