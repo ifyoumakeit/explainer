@@ -10,7 +10,7 @@ const command = process.argv[2];
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 const writeFile = util.promisify(fs.writeFile);
@@ -19,8 +19,11 @@ const access = util.promisify(fs.access);
 
 const stringify = exp => JSON.stringify(exp, null, 2);
 const getPackageName = (deps, key) => `${key}@${deps[key]}`;
-const getDeps = ({ dependencies, devDependencies, peerDependencies }) =>
-  Object.assign({}, dependencies, devDependencies, peerDependencies);
+const getDeps = ({ dependencies, devDependencies, peerDependencies }) => ({
+  ...dependencies,
+  ...devDependencies,
+  ...peerDependencies,
+});
 const keysDiff = (a, b) =>
   Math.abs(Object.keys(a).length - Object.keys(b).length);
 
@@ -30,7 +33,7 @@ const COLORS = {
   green: "[32m",
   yellow: "[33m",
   blue: "[34m",
-  magenta: "[35m"
+  magenta: "[35m",
 };
 
 const log = (color = COLORS.reset, title, ...strs) => {
@@ -78,8 +81,8 @@ async function getPkgData() {
   return {
     ...dataPkg,
     explainer: dataPkg.explainer || {
-      explainer: "Explains our choices"
-    }
+      explainer: "Explains our choices",
+    },
   };
 }
 
@@ -110,7 +113,7 @@ async function update() {
   const deps = getDeps(dataPkg);
 
   const updated = Object.keys(deps).reduce((memo, key) => {
-    return Object.assign({}, memo, { [key]: dataPkg.explainer[key] || "" });
+    return { ...memo, [key]: dataPkg.explainer[key] || "" };
   }, explainer);
 
   await writeToPkg({ ...dataPkg, explainer: updated });
@@ -134,8 +137,8 @@ async function add() {
         ...dataPkg,
         explainer: {
           ...dataPkg.explainer,
-          [dep]: description
-        }
+          [dep]: description,
+        },
       })
     );
     rl.close();
