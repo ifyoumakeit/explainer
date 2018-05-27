@@ -1,0 +1,5 @@
+{
+  "explainer": "To help explain our choices.",
+  "semantic-release": "To automatically release new versions of Explainer\"",
+  "travis-deploy-once": "Run a deployment script only once in the Travis test matrix."
+}

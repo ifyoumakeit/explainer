@@ -1,6 +1,6 @@
 {
   "name": "explainer",
-  "version": "0.0.4",
+  "version": "0.0.0-development",
   "repository": "github:ifyoumakeit/explainer",
   "description": "Explain your package choices!",
   "bin": {
@@ -10,5 +10,14 @@
   "engines": {
     "node": ">=8"
   },
-  "explainer": {}
+  "explainer": {},
+  "devDependencies": {
+    "semantic-release": "^15.5.0",
+    "travis-deploy-once": "^5.0.0"
+  },
+  "scripts": {
+    "semantic-release": "semantic-release",
+    "travis-deploy-once": "travis-deploy-once",
+    "explainer": "node ./bin/explainer.js"
+  }
 }
